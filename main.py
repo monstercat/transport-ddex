@@ -5,7 +5,7 @@ from typing import Dict, Tuple, List
 
 RESOURCES_DIR = 'resources'
 
-def parse_filename (path: str):
+def parse_filename (path: str) -> Tuple[str, str]:
     filename, _ = os.path.splitext(os.path.basename(path))
     arr = filename.split('_') 
     return arr[0], arr[1]
@@ -17,7 +17,13 @@ def get_grid_dir_map (listing: List[str]) -> Dict[str, str]:
        dic[grid] = i
     return dic
 
-def send_releases (args):
+def resources_match (sftp, local_path: str) -> bool:
+    r_listing = []
+    with sftp.cd(RESOURCES_DIR):
+        r_listing = sftp.listdir()
+    return r_listing == os.listdir(local_path)
+
+def send_releases (args) -> None:
     paths = os.listdir(args.dir)
     with pysftp.Connection(args.host, username=args.user, password=args.password) as sftp:
         with sftp.cd(args.target_dir):
@@ -42,30 +48,51 @@ def send_releases (args):
                         if not sftp.exists(RESOURCES_DIR):
                             if args.verbose: print('>> Creating directory %s/%s' % (filename, RESOURCES_DIR))
                             sftp.mkdir(RESOURCES_DIR)
-                        if not args.skip_resources:
+                        if not args.skip_resources or (args.skip_matching_resources and not resources_match(sftp, l_rdir_path)):
                             if args.verbose: print('>> Uploading resource files')
                             sftp.put_d(l_rdir_path, RESOURCES_DIR, preserve_mtime=False)
                         if not args.skip_existing:
                             if args.verbose: print('>> Uploading XML file')
                             sftp.put(l_xml_path, preserve_mtime=False)
-                elif args.verbose:
-                    if not sftp.exists(RESOURCES_DIR):
-                        print('>> Creating directory %s/%s' % (filename, RESOURCES_DIR))
-                    if not args.skip_resources:
-                        print('>> Uploading resource files')
-                    if not args.skip_existing:
-                        print('>> Uploading XML file')
 
 parser = argparse.ArgumentParser(description='Manages transfering DDEX files to a remote location.')
-parser.add_argument('host')
-parser.add_argument('--username', default='', dest='user')
-parser.add_argument('--password', default='')
-parser.add_argument('dir')
-parser.add_argument('-v', '--verbose', dest='verbose', action='store_true')
-parser.add_argument('--update-timestamps', dest='update_timestamps', action='store_true', help='Indicates that previous timestamped files should be renamed.')
-parser.add_argument('--target-dir', dest='target_dir', default='upload')
-parser.add_argument('--skip-existing', dest='skip_existing', action='store_true')
-parser.add_argument('--skip-resources', dest='skip_resources', action='store_true')
-parser.add_argument('-d', '--dry', action='store_true', help='Will not upload files, but will create the needed root directories')
+parser.add_argument('host',
+        help='The SFTP host address')
+parser.add_argument('--username',
+        default='',
+        dest='user',
+        help='The SFTP username.')
+parser.add_argument('--password', 
+        default='',
+        help='The SFTP password.')
+parser.add_argument('dir',
+        help='The location of the release directories to upload.')
+parser.add_argument('-v', '--verbose',
+        dest='verbose',
+        action='store_true',
+        help='This flag enables the printing of information during the process.')
+parser.add_argument('--update-timestamps',
+        dest='update_timestamps',
+        action='store_true',
+        help='Indicates that previous timestamped files should be renamed.')
+parser.add_argument('--target-dir',
+        dest='target_dir',
+        default='upload',
+        help='Allows you to change the designated directory to upload to.')
+parser.add_argument('--skip-existing',
+        dest='skip_existing',
+        action='store_true',
+        help='This flag indicates to not upload the DDEX XML notice.')
+parser.add_argument('--skip-resources',
+        dest='skip_resources',
+        action='store_true',
+        help='This flag indicates to not upload the resources directory.')
+parser.add_argument('--skip-matching-resources',
+        dest='skip_matching_resources',
+        action='store_true',
+        help='If the resource directory\'s files look the same it will be skipped.')
+parser.add_argument('-d', '--dry',
+        action='store_true',
+        help='Only supports the root level directory of printing. Will not create or upload files.')
 args = parser.parse_args()
 send_releases(args)
