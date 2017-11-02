@@ -43,7 +43,7 @@ def send_releases (args, vlog) -> None:
         if args.batch_profile:
             vlog('>> Creating batch root directory %s' % (batch_dir))
         if args.batch_profile and not args.dry:
-            sftp.mkdir(root_dir)
+            sftp.makedirs(root_dir)
 
         with sftp.cd(root_dir):
             remote_map = get_grid_dir_map(sftp.listdir())
@@ -54,7 +54,7 @@ def send_releases (args, vlog) -> None:
                     continue
                 if 'BatchComplete' in filename:
                     # Manifest file must be sent last.
-                    manifest_path = path
+                    manifest_path = os.path.abspath(os.path.join(args.dir, path))
                     continue
                 vlog('Working on %s' % (filename,))
                 grid, timestamp = parse_filename(filename)
@@ -111,7 +111,8 @@ parser.add_argument('--update-timestamps',
         help='Indicates that previous timestamped files should be renamed.')
 parser.add_argument('--batch-profile',
         dest='batch_profile',
-        action='store_true',
+        type=bool,
+        default=True,
         help='Indicates upload using ERN Choreography Batch profile instead of Release By Release Profile.')
 parser.add_argument('--target-dir',
         dest='target_dir',
