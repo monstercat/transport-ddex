@@ -32,9 +32,9 @@ def log(verbose):
 
 def send_releases (args, vlog) -> None:
     paths = os.listdir(args.dir)
-    with pysftp.Connection(args.host, username=args.user, password=args.password) as sftp:
+    with pysftp.Connection(args.host, username=args.user, password=args.password, port=args.P) as sftp:
         # Batch profile places all folders of releases into a "batch" folder
-        batch_dir = datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')[:-3]
+        batch_dir = datetime.now().strftime('%Y%m%d%H%M%S%f')[:-3]
         root_dir = os.path.join(args.target_dir, batch_dir) if args.batch_profile else args.target_dir
 
         if args.batch_profile:
@@ -90,6 +90,10 @@ parser.add_argument('--username',
 parser.add_argument('--password',
         default='',
         help='The SFTP password.')
+parser.add_argument('-P',
+        default=22,
+        type=int,
+        help='Port.')
 parser.add_argument('dir',
         help='The location of the release directories to upload.')
 parser.add_argument('-v', '--verbose',
@@ -103,7 +107,6 @@ parser.add_argument('--update-timestamps',
 parser.add_argument('--batch-profile',
         dest='batch_profile',
         action='store_true',
-        type=bool,
         help='Indicates upload using ERN Choreography Batch profile instead of Release By Release Profile.')
 parser.add_argument('--target-dir',
         dest='target_dir',
