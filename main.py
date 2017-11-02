@@ -9,7 +9,10 @@ RESOURCES_DIR = 'resources'
 def parse_filename (path: str) -> Tuple[str, str]:
     filename, _ = os.path.splitext(os.path.basename(path))
     arr = filename.split('_')
-    return arr[0], arr[1]
+    try:
+        return arr[0], arr[1]
+    except IndexError:
+        return arr[0], ''
 
 def get_grid_dir_map (listing: List[str]) -> Dict[str, str]:
     dic = {}
@@ -47,6 +50,8 @@ def send_releases (args, vlog) -> None:
             manifest_path = None
             for index, path in enumerate(paths):
                 filename = os.path.basename(path)
+                if filename[0] == '.':
+                    continue
                 if 'BatchComplete' in filename:
                     # Manifest file must be sent last.
                     manifest_path = path
