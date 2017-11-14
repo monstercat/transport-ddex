@@ -33,7 +33,7 @@ def log(verbose):
             print(*args)
     return vlog
 
-def send_releases (args, vlog) -> None:
+def go (args, vlog) -> None:
     paths = os.listdir(args.dir)
     with pysftp.Connection(args.host, username=args.user, password=args.password, port=args.P) as sftp:
         # Batch profile places all folders of releases into a "batch" folder
@@ -42,7 +42,6 @@ def send_releases (args, vlog) -> None:
 
         if args.batch_profile:
             vlog('>> Creating batch root directory %s' % (batch_dir))
-        if args.batch_profile and not args.dry:
             sftp.makedirs(root_dir)
 
         with sftp.cd(root_dir):
@@ -65,25 +64,23 @@ def send_releases (args, vlog) -> None:
                 old_filename = remote_map.get(grid, '')
                 if args.update_timestamps and old_filename and old_filename != filename:
                     vlog('>> Renaming %s to %s' % (old_filename, filename))
-                    if not args.dry: sftp.rename(old_filename, filename)
+                    sftp.rename(old_filename, filename)
                 if not sftp.exists(filename):
                     vlog('>> Creating directory %s' % (filename))
-                    if not args.dry: sftp.mkdir(filename)
-                if not args.dry:
-                    with sftp.cd(filename):
-                        if not sftp.exists(RESOURCES_DIR):
-                            vlog('>> Creating directory %s/%s' % (filename, RESOURCES_DIR))
-                            sftp.mkdir(RESOURCES_DIR)
-                        if not args.skip_resources or (args.skip_matching_resources and not resources_match(sftp, l_rdir_path)):
-                            vlog('>> Uploading resource files')
-                            sftp.put_d(l_rdir_path, RESOURCES_DIR, preserve_mtime=False)
-                        if not args.skip_existing:
-                            vlog('>> Uploading XML file')
-                            sftp.put(l_xml_path, preserve_mtime=False)
+                    sftp.mkdir(filename)
+                with sftp.cd(filename):
+                    if not sftp.exists(RESOURCES_DIR):
+                        vlog('>> Creating directory %s/%s' % (filename, RESOURCES_DIR))
+                        sftp.mkdir(RESOURCES_DIR)
+                    if not args.skip_resources or (args.skip_matching_resources and not resources_match(sftp, l_rdir_path)):
+                        vlog('>> Uploading resource files')
+                        sftp.put_d(l_rdir_path, RESOURCES_DIR, preserve_mtime=False)
+                    if not args.skip_existing:
+                        vlog('>> Uploading XML file')
+                        sftp.put(l_xml_path, preserve_mtime=False)
             if args.batch_profile and manifest_path:
                 vlog('>> Upload manifest file %s' % (manifest_path))
-                if not args.dry:
-                    sftp.put(manifest_path, preserve_mtime=False)
+                sftp.put(manifest_path, preserve_mtime=False)
 
 parser = argparse.ArgumentParser(description='Manages transfering DDEX files to a remote location.')
 parser.add_argument('host',
@@ -111,8 +108,7 @@ parser.add_argument('--update-timestamps',
         help='Indicates that previous timestamped files should be renamed.')
 parser.add_argument('--batch-profile',
         dest='batch_profile',
-        type=bool,
-        default=True,
+        action='store_true',
         help='Indicates upload using ERN Choreography Batch profile instead of Release By Release Profile.')
 parser.add_argument('--target-dir',
         dest='target_dir',
@@ -130,8 +126,5 @@ parser.add_argument('--skip-matching-resources',
         dest='skip_matching_resources',
         action='store_true',
         help='If the resource directory\'s files look the same it will be skipped.')
-parser.add_argument('-d', '--dry',
-        action='store_true',
-        help='Only supports the root level directory of printing. Will not create or upload files.')
 args = parser.parse_args()
-send_releases(args, log(args.verbose))
+go(args, log(args.verbose))
