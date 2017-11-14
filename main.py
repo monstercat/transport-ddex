@@ -21,11 +21,21 @@ def get_grid_dir_map (listing: List[str]) -> Dict[str, str]:
        dic[grid] = i
     return dic
 
+def compare_str_lists (a, b) -> bool:
+    for x in a:
+        if x not in b:
+            return False
+    for x in b:
+        if x not in a:
+            return False
+    return True
+
 def resources_match (sftp, local_path: str) -> bool:
+    l_listing = os.listdir(local_path)
     r_listing = []
     with sftp.cd(RESOURCES_DIR):
         r_listing = sftp.listdir()
-    return r_listing == os.listdir(local_path)
+    return compare_str_lists(r_listing, l_listing)
 
 def log(verbose):
     def vlog(*args):
@@ -72,7 +82,9 @@ def go (args, vlog) -> None:
                     if not sftp.exists(RESOURCES_DIR):
                         vlog('>> Creating directory %s/%s' % (filename, RESOURCES_DIR))
                         sftp.mkdir(RESOURCES_DIR)
-                    if not args.skip_resources or (args.skip_matching_resources and not resources_match(sftp, l_rdir_path)):
+                    if args.skip_resources or (args.skip_matching_resources and resources_match(sftp, l_rdir_path)):
+                        vlog('>> Skipping resource files')
+                    else:
                         vlog('>> Uploading resource files')
                         sftp.put_d(l_rdir_path, RESOURCES_DIR, preserve_mtime=False)
                     if not args.skip_existing:
