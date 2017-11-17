@@ -37,6 +37,16 @@ def resources_match (sftp, local_path: str) -> bool:
         r_listing = sftp.listdir()
     return compare_str_lists(r_listing, l_listing)
 
+def upload_resources (sftp, vlog, local_path: str) -> None:
+    resources = os.listdir(local_path)
+    with sftp.cd(RESOURCES_DIR):
+        for index, resource in enumerate(resources):
+            if not sftp.exists(resource):
+                vlog('>>> Uploading ' + resource)
+                sftp.put(os.path.join(local_path, resource), preserve_mtime=False)
+            else:
+                vlog('>>> Skipping ' + resource + ', already exists.')
+
 def log(verbose):
     def vlog(*args):
         if verbose:
@@ -79,15 +89,18 @@ def go (args, vlog) -> None:
                     vlog('>> Creating directory %s' % (filename))
                     sftp.mkdir(filename)
                 with sftp.cd(filename):
-                    if not sftp.exists(RESOURCES_DIR):
+                    if not sftp.exists(RESOURCES_DIR) and not args.skip_resources:
                         vlog('>> Creating directory %s/%s' % (filename, RESOURCES_DIR))
                         sftp.mkdir(RESOURCES_DIR)
-                    if args.skip_resources or (args.skip_matching_resources and resources_match(sftp, l_rdir_path)):
+                    if args.skip_resources:
                         vlog('>> Skipping resource files')
+                    elif args.force_resources:
+                        vlog('>> Forcing resource files upload')
+                        sftp.put_d(l_rdir_path, RESOURCES_DIR, preserve_mtime=False)
                     else:
                         vlog('>> Uploading resource files')
-                        sftp.put_d(l_rdir_path, RESOURCES_DIR, preserve_mtime=False)
-                    if not args.skip_existing:
+                        upload_resources(sftp, vlog, l_rdir_path)
+                    if not args.skip_xml:
                         vlog('>> Uploading XML file')
                         sftp.put(l_xml_path, preserve_mtime=False)
             if args.batch_profile and manifest_path:
@@ -126,17 +139,17 @@ parser.add_argument('--target-dir',
         dest='target_dir',
         default='upload',
         help='Allows you to change the designated directory to upload to.')
-parser.add_argument('--skip-existing',
-        dest='skip_existing',
+parser.add_argument('--skip-xml',
+        dest='skip_xml',
         action='store_true',
         help='This flag indicates to not upload the DDEX XML notice.')
 parser.add_argument('--skip-resources',
         dest='skip_resources',
         action='store_true',
         help='This flag indicates to not upload the resources directory.')
-parser.add_argument('--skip-matching-resources',
-        dest='skip_matching_resources',
+parser.add_argument('--force-resources',
+        dest='force_resources',
         action='store_true',
-        help='If the resource directory\'s files look the same it will be skipped.')
+        help='If present the resource folder will be completely uploaded overwriting anything there.')
 args = parser.parse_args()
 go(args, log(args.verbose))
