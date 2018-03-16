@@ -57,7 +57,7 @@ def go (args, vlog) -> None:
     paths = os.listdir(args.dir)
     with pysftp.Connection(args.host, username=args.user, password=args.password, port=args.P) as sftp:
         # Batch profile places all folders of releases into a "batch" folder
-        batch_dir = datetime.now().strftime('%Y%m%d%H%M%S%f')[:-3]
+        batch_dir = args.batch_dir or datetime.now().strftime('%Y%m%d%H%M%S%f')[:-3]
         root_dir = os.path.join(args.target_dir, batch_dir) if args.batch_profile else args.target_dir
 
         if args.batch_profile:
@@ -103,6 +103,7 @@ def go (args, vlog) -> None:
                     if not args.skip_xml:
                         vlog('>> Uploading XML file')
                         sftp.put(l_xml_path, preserve_mtime=False)
+                vlog('Done with %s' % (filename,))
             if args.batch_profile and manifest_path:
                 vlog('>> Upload manifest file %s' % (manifest_path))
                 sftp.put(manifest_path, preserve_mtime=False)
@@ -139,6 +140,9 @@ parser.add_argument('--target-dir',
         dest='target_dir',
         default='upload',
         help='Allows you to change the designated directory to upload to.')
+parser.add_argument('--batch-dir',
+        dest='batch_dir',
+        help='Allows you to force batch directory name instead of current timestamped name.')
 parser.add_argument('--skip-xml',
         dest='skip_xml',
         action='store_true',
